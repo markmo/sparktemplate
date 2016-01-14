@@ -1,3 +1,4 @@
+import com.typesafe.config.ConfigFactory
 import diamond.io.{CSVSink, CSVSource}
 import diamond.transformation.TransformationContext
 import diamond.transformation.row.{AppendColumnRowTransformation, RowTransformation}
@@ -15,16 +16,18 @@ import scala.util.Try
 class AppSpec extends UnitSpec {
 
   // Setup
-  val conf = new SparkConf().setAppName("sparktemplate").setMaster("local[4]")
-  val sc = new SparkContext(conf)
+  val conf = ConfigFactory.load()
+  val sparkConf = new SparkConf().setAppName(conf.getString("app.name")).setMaster(conf.getString("spark.master"))
+  val sc = new SparkContext(sparkConf)
   val sqlContext = new SQLContext(sc)
 
   "A Pipeline" should "generate results given the sample data" in {
     val source = CSVSource(sqlContext)
     val sink = CSVSink(sqlContext)
 
-    val inPath = getClass.getResource("events_sample.csv").getPath
-    val outPath = "/tmp/out_test"
+    val test = conf.getConfig("test")
+    val inPath = getClass.getResource(test.getString("file")).getPath
+    val outPath = test.getString("out.path")
 
     val inputSchema = StructType(
       StructField("entityIdType", StringType) ::
@@ -68,8 +71,8 @@ class AppSpec extends UnitSpec {
     // Run Pipeline
     val results = pipeline.run(source, sink, ctx)
 
-    results.count() should be (49)
-    results.take(1)(0)(7) should equal ("Hello")
+    results.count() should be(49)
+    results.take(1)(0)(7) should equal("Hello")
   }
 
 }
